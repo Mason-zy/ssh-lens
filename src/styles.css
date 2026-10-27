@@ -1,0 +1,264 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink-950: #14171c;
+  --ink-900: #191d24;
+  --ink-850: #1e232b;
+  --ink-800: #20252e;
+  --ink-700: #2a3039;
+  --paper: #e9e6df;
+  --paper-dim: #a8a49b;
+  --paper-faint: #6d6a63;
+  --amber: #c98a3c;
+  --rule: rgba(255, 255, 255, 0.08);
+  --rule-strong: rgba(255, 255, 255, 0.14);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--ink-950);
+    color: var(--paper);
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: rgba(201, 138, 60, 0.25);
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ink-700) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--ink-700);
+    border: 3px solid var(--ink-950);
+    border-radius: 999px;
+  }
+}
+
+@layer components {
+  .reading {
+    max-width: 74ch;
+    margin: 0 auto;
+    padding: 2.5rem 2.25rem 5rem;
+    line-height: 1.72;
+    font-size: 15px;
+  }
+
+  .reading h1,
+  .reading h2,
+  .reading h3 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    scroll-margin-top: 4rem;
+  }
+
+  .reading h1 {
+    font-size: 2rem;
+    margin: 2rem 0 1rem;
+  }
+
+  .reading h2 {
+    font-size: 1.45rem;
+    margin: 2.2rem 0 0.8rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  .reading h3 {
+    font-size: 1.1rem;
+    margin: 1.7rem 0 0.6rem;
+  }
+
+  .reading p {
+    margin: 0 0 1rem;
+  }
+
+  .reading a {
+    color: var(--amber);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(201, 138, 60, 0.35);
+  }
+
+  .reading a:hover {
+    border-bottom-color: var(--amber);
+  }
+
+  .reading ul,
+  .reading ol {
+    margin: 0 0 1rem;
+    padding-left: 1.3rem;
+  }
+
+  .reading li {
+    margin: 0.3rem 0;
+  }
+
+  .reading blockquote {
+    margin: 1.3rem 0;
+    padding-left: 1.1rem;
+    border-left: 2px solid var(--amber);
+    color: var(--paper-dim);
+    font-style: italic;
+  }
+
+  .reading hr {
+    margin: 2.2rem 0;
+    border: 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .reading code {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.85em;
+    padding: 0.12em 0.4em;
+    border-radius: 3px;
+    background: var(--ink-850);
+    color: #dfd8c8;
+  }
+
+  .reading pre {
+    margin: 1.2rem 0;
+    padding: 1rem 1.15rem;
+    border-radius: 6px;
+    background: #101317;
+    border: 1px solid var(--rule);
+    overflow-x: auto;
+    line-height: 1.6;
+  }
+
+  .reading pre code {
+    padding: 0;
+    background: transparent;
+    font-size: 0.82rem;
+  }
+
+  .reading table {
+    width: 100%;
+    margin: 1.3rem 0;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .reading th,
+  .reading td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    text-align: left;
+  }
+
+  .reading th {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--paper-dim);
+  }
+
+  .reading img {
+    max-width: 100%;
+    border-radius: 4px;
+    border: 1px solid var(--rule);
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-built_in,
+  .hljs-type {
+    color: #c9915c;
+  }
+
+  .hljs-string,
+  .hljs-attr {
+    color: #a3b58a;
+  }
+
+  .hljs-number,
+  .hljs-literal {
+    color: #c47f7f;
+  }
+
+  .hljs-comment,
+  .hljs-quote {
+    color: #5d5f5a;
+    font-style: italic;
+  }
+
+  .hljs-function,
+  .hljs-title,
+  .hljs-section {
+    color: #d8c79f;
+  }
+
+  .hljs-variable,
+  .hljs-params {
+    color: #b9b4a7;
+  }
+
+  .rise {
+    animation: rise 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fade-in {
+    animation: fade-in 160ms ease-out both;
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise,
+    .fade-in {
+      animation: none;
+    }
+  }
+
+  /* xterm fills its pane without inheriting page padding */
+  .terminal-host .xterm {
+    height: 100%;
+    padding: 10px 12px;
+  }
+
+  .terminal-host .xterm-viewport {
+    background-color: transparent !important;
+  }
+}
