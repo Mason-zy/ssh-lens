@@ -185,7 +185,7 @@ app.post('/api/upload', requireAuth, upload.array('files', 20), async (request, 
 
     for (const file of files) {
       // Strip any directory component the client sent; never trust originalname.
-      const name = path.basename(file.originalname).replace(/[/\\\0]/g, '_').trim();
+      const name = decodeUploadName(path.basename(file.originalname)).replace(/[/\\\0]/g, '_').trim();
       if (!name || name === '.' || name === '..') continue;
 
       if (name.toLowerCase().endsWith('.zip')) {
@@ -204,6 +204,42 @@ app.post('/api/upload', requireAuth, upload.array('files', 20), async (request, 
 });
 
 /**
+ * multipart filenames arrive as raw header bytes that busboy decodes as latin1,
+ * which turns every non-ASCII name into mojibake. Re-decode as UTF-8; if that
+ * produces replacement characters the value was not UTF-8 after all, so keep it.
+ */
+function decodeUploadName(name: string): string {
+  const utf8 = Buffer.from(name, 'latin1').toString('utf8');
+  return utf8.includes('�') ? name : utf8;
+}
+
+/**
+ * Archives written by older Chinese Windows tools store GBK bytes without the
+ * UTF-8 flag, so adm-zip's default UTF-8 decoding produces mojibake. Honour the
+ * flag when set, otherwise try strict UTF-8 and fall back to GBK.
+ */
+function decodeZipEntryName(entry: AdmZip.IZipEntry): string {
+  const raw = (entry as unknown as { rawEntryName?: Buffer }).rawEntryName;
+  if (!raw) return entry.entryName;
+
+  const flags = (entry.header as unknown as { flags?: number } | undefined)?.flags ?? 0;
+  if ((flags & 0x800) !== 0) return raw.toString('utf8');
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(raw);
+  } catch {
+    try {
+      const gbk = new TextDecoder('gbk').decode(raw);
+      if (!gbk.includes('�')) return gbk;
+    } catch {
+      /* unknown encoding */
+    }
+  }
+
+  return raw.toString('utf8');
+}
+
+/**
  * Extracts into a directory named after the archive. Every entry is re-checked
  * against the destination so a crafted `../` path cannot escape (zip slip).
  */
@@ -215,7 +251,7 @@ async function extractZip(buffer: Buffer, targetDirectory: string, archiveName: 
   const base = path.resolve(destination);
 
   for (const entry of zip.getEntries()) {
-    const entryName = entry.entryName.replace(/\\/g, '/');
+    const entryName = decodeZipEntryName(entry).replace(/\\/g, '/');
     if (entryName.includes('..') || entryName.startsWith('/')) continue;
 
     const full = path.resolve(base, entryName);
