@@ -183,40 +183,6 @@
     border: 1px solid var(--rule);
   }
 
-  .hljs-keyword,
-  .hljs-selector-tag,
-  .hljs-built_in,
-  .hljs-type {
-    color: #c9915c;
-  }
-
-  .hljs-string,
-  .hljs-attr {
-    color: #a3b58a;
-  }
-
-  .hljs-number,
-  .hljs-literal {
-    color: #c47f7f;
-  }
-
-  .hljs-comment,
-  .hljs-quote {
-    color: #5d5f5a;
-    font-style: italic;
-  }
-
-  .hljs-function,
-  .hljs-title,
-  .hljs-section {
-    color: #d8c79f;
-  }
-
-  .hljs-variable,
-  .hljs-params {
-    color: #b9b4a7;
-  }
-
   .rise {
     animation: rise 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
@@ -261,4 +227,65 @@
   .terminal-host .xterm-viewport {
     background-color: transparent !important;
   }
+}
+
+/*
+ * highlight.js token colours live outside @layer on purpose: Tailwind only keeps
+ * classes it can find in the source files, and `hljs-*` is generated at runtime
+ * from the highlighter, so inside a layer every rule would be stripped.
+ * Colours mirror the editor's oneDark theme so both views agree.
+ */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-type,
+.hljs-tag {
+  color: #c678dd;
+}
+
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag,
+.hljs-template-variable {
+  color: #98c379;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-symbol {
+  color: #d19a66;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #5c6370;
+  font-style: italic;
+}
+
+.hljs-function,
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #61afef;
+}
+
+.hljs-variable,
+.hljs-params,
+.hljs-name {
+  color: #e06c75;
+}
+
+.hljs-meta,
+.hljs-doctag {
+  color: #7f848e;
+}
+
+.hljs-addition {
+  color: #98c379;
+  background: rgba(152, 195, 121, 0.1);
+}
+
+.hljs-deletion {
+  color: #e06c75;
+  background: rgba(224, 108, 117, 0.1);
 }
