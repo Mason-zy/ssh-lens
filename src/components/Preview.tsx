@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 
 import { api, type FilePayload, type PreviewKind } from '../lib/api';
@@ -39,6 +41,9 @@ function formatSize(bytes: number): string {
 }
 
 const EDITABLE: PreviewKind[] = ['markdown', 'html', 'code'];
+
+/** PDF has its own viewer controls; a binary fallback has nothing to scale. */
+const ZOOMABLE: PreviewKind[] = ['markdown', 'html', 'code', 'image'];
 
 export default function Preview({
   file,
@@ -188,7 +193,7 @@ function Toolbar({
         {KIND_LABEL[file.kind]}
       </span>
 
-      {file.kind === 'html' && (
+      {ZOOMABLE.includes(file.kind) && (
         <div className="flex shrink-0 items-center overflow-hidden border border-[var(--rule)]">
           <button
             onClick={() => onZoomChange(ZOOM_STEPS[Math.max(zoomIndex - 1, 0)])}
@@ -322,7 +327,7 @@ function Body({
   if (mode === 'source' && (file.kind === 'markdown' || file.kind === 'html')) {
     return (
       <div key={key} className="fade-in h-full">
-        <CodeView content={file.content ?? ''} path={file.path} />
+        <CodeView content={file.content ?? ''} path={file.path} zoom={zoom} />
       </div>
     );
   }
@@ -339,7 +344,7 @@ function renderView(file: FilePayload, zoom: number) {
 
   switch (file.kind) {
     case 'markdown':
-      return <MarkdownView content={file.content ?? ''} />;
+      return <MarkdownView content={file.content ?? ''} path={file.path} zoom={zoom} />;
     case 'html':
       return (
         <div className="h-full overflow-auto">
@@ -354,15 +359,16 @@ function renderView(file: FilePayload, zoom: number) {
         </div>
       );
     case 'code':
-      return <CodeView content={file.content ?? ''} path={file.path} />;
+      return <CodeView content={file.content ?? ''} path={file.path} zoom={zoom} />;
     case 'image':
       return (
-        <div className="grid h-full place-items-center overflow-auto bg-[#0f1216] p-8">
-          <figure className="max-w-full">
+        <div className="h-full overflow-auto bg-[#0f1216] p-8">
+          <figure className="flex min-h-full flex-col items-center justify-center">
             <img
               src={api.rawUrl(file.path)}
               alt={name}
-              className="max-h-[calc(100vh-8rem)] max-w-full rounded border border-[var(--rule)] object-contain"
+              style={{ maxWidth: `${zoom * 100}%` }}
+              className="h-auto rounded border border-[var(--rule)] object-contain"
             />
             <figcaption className="mt-3 text-center font-mono text-[10px] text-paper-faint">{file.path}</figcaption>
           </figure>
@@ -384,12 +390,40 @@ function renderView(file: FilePayload, zoom: number) {
   }
 }
 
-function MarkdownView({ content }: { content: string }) {
+/**
+ * A README's images are usually relative (`docs/a.png`). Those resolve against
+ * the page URL in a normal renderer, which would 404 here — route them through
+ * the raw endpoint using the markdown file's own directory instead.
+ */
+function resolveAssetUrl(source: string, filePath: string): string {
+  // Anchors, credentials-free schemes and absolute URLs are already usable.
+  if (/^(https?:|data:|blob:|mailto:|tel:|#)/i.test(source)) return source;
+
+  const directory = filePath.slice(0, filePath.lastIndexOf('/')) || '/';
+
+  try {
+    const resolved = new URL(source, `https://placeholder.invalid${directory}/`);
+    return api.rawUrl(decodeURIComponent(resolved.pathname));
+  } catch {
+    return source;
+  }
+}
+
+function MarkdownView({ content, path, zoom }: { content: string; path: string; zoom: number }) {
   return (
-    <div className="h-full overflow-y-auto">
-      <article className="reading">
+    <div className="h-full overflow-auto">
+      <article
+        className="reading"
+        // Keep the measured reading width steady: zoom scales the type, so the
+        // constraint has to shrink by the same factor.
+        style={{ zoom, maxWidth: `${74 / zoom}ch` }}
+      >
+        {/* Raw HTML is parsed so badges and centred headers render, then passed
+            through rehype-sanitize: scripts, event handlers and iframes are
+            stripped before they ever reach the DOM. */}
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw, rehypeSanitize]}
           components={{
             code(props) {
               const { className, children } = props as { className?: string; children?: React.ReactNode };
@@ -405,10 +439,26 @@ function MarkdownView({ content }: { content: string }) {
 
               return <code className={className}>{children}</code>;
             },
+            img(props) {
+              const { src, alt, title } = props as {
+                src?: string;
+                alt?: string;
+                title?: string;
+              };
+              return (
+                <img
+                  src={src ? resolveAssetUrl(src, path) : undefined}
+                  alt={alt ?? ''}
+                  title={title}
+                  loading="lazy"
+                />
+              );
+            },
             a(props) {
               const { href, children } = props as { href?: string; children?: React.ReactNode };
+              const target = href ? resolveAssetUrl(href, path) : href;
               return (
-                <a href={href} target="_blank" rel="noreferrer noopener">
+                <a href={target} target="_blank" rel="noreferrer noopener">
                   {children}
                 </a>
               );
@@ -422,14 +472,17 @@ function MarkdownView({ content }: { content: string }) {
   );
 }
 
-function CodeView({ content, path }: { content: string; path: string }) {
+function CodeView({ content, path, zoom }: { content: string; path: string; zoom: number }) {
   const html = useMemo(() => highlight(content, languageOf(path)), [content, path]);
   const lines = useMemo(() => content.split('\n').length, [content]);
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-auto">
-        <pre className="min-h-full bg-[#101317] px-5 py-4 font-mono text-[12.5px] leading-[1.65] text-paper-dim">
+        <pre
+          style={{ zoom }}
+          className="min-h-full bg-[#101317] px-5 py-4 font-mono text-[12.5px] leading-[1.65] text-paper-dim"
+        >
           <code dangerouslySetInnerHTML={{ __html: html }} />
         </pre>
       </div>

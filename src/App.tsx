@@ -9,10 +9,15 @@ import { api, ApiError, type Entry, type FilePayload } from './lib/api';
 type Phase = 'checking' | 'login' | 'ready';
 type Tab = 'files' | 'terminal';
 
+const SIDEBAR_KEY = 'ssh-lens:sidebar-open';
+
 export default function App() {
   const [phase, setPhase] = useState<Phase>('checking');
   const [tab, setTab] = useState<Tab>('files');
   const [root, setRoot] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => localStorage.getItem(SIDEBAR_KEY) !== '0',
+  );
 
   const [file, setFile] = useState<FilePayload | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -144,6 +149,20 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-ink-950">
       <header className="flex h-12 shrink-0 items-center gap-4 border-b border-[var(--rule)] px-4">
+        <button
+          onClick={() => {
+            setSidebarOpen((previous) => {
+              localStorage.setItem(SIDEBAR_KEY, previous ? '0' : '1');
+              return !previous;
+            });
+          }}
+          aria-pressed={sidebarOpen}
+          title={sidebarOpen ? '收起文件树，放大阅读区' : '展开文件树'}
+          className="-ml-1 shrink-0 border border-transparent px-1.5 py-0.5 font-mono text-[13px] text-paper-faint transition-colors hover:border-[var(--rule)] hover:text-paper"
+        >
+          {sidebarOpen ? '◧' : '▢'}
+        </button>
+
         <span className="font-serif text-[15px] tracking-tight text-paper">文件阅览器</span>
         <span className="hidden max-w-[28rem] truncate font-mono text-[10.5px] text-paper-faint/70 md:inline">
           {root}
@@ -177,7 +196,12 @@ export default function App() {
 
       <div className="relative min-h-0 flex-1">
         <div className={`h-full ${tab === 'files' ? 'flex' : 'hidden'}`}>
-          <aside className="w-[280px] shrink-0 border-r border-[var(--rule)] bg-[var(--ink-900)]">
+          {/* Collapsing keeps the tree mounted so its cache and expansion state survive. */}
+          <aside
+            className={`shrink-0 overflow-hidden bg-[var(--ink-900)] transition-[width] duration-200 ease-out ${
+              sidebarOpen ? 'w-[280px] border-r border-[var(--rule)]' : 'w-0'
+            }`}
+          >
             <FileTree
               selectedPath={selectedPath}
               onOpenFile={(entry) => void openFile(entry)}
