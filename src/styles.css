@@ -51,11 +51,12 @@
 }
 
 [data-theme='light'] {
-  --ink-950-rgb: 250 248 243;
-  --ink-900-rgb: 243 240 233;
-  --ink-850-rgb: 234 230 222;
-  --ink-800-rgb: 224 219 210;
-  --ink-700-rgb: 207 201 189;
+  /* Every surface is pure white; structure comes from hairlines and hover fills. */
+  --ink-950-rgb: 255 255 255;
+  --ink-900-rgb: 255 255 255;
+  --ink-850-rgb: 244 244 245;
+  --ink-800-rgb: 235 235 237;
+  --ink-700-rgb: 214 214 217;
   --paper-rgb: 35 39 46;
   --paper-dim-rgb: 84 90 99;
   --paper-faint-rgb: 134 140 149;
@@ -71,11 +72,11 @@
   --paper-faint: rgb(var(--paper-faint-rgb));
   --amber: rgb(var(--amber-rgb));
 
-  --rule: rgba(0, 0, 0, 0.09);
-  --rule-strong: rgba(0, 0, 0, 0.16);
-  --danger: #c0453a;
-  --code-bg: #f7f4ee;
-  --canvas-bg: #eeeae2;
+  --rule: rgba(0, 0, 0, 0.1);
+  --rule-strong: rgba(0, 0, 0, 0.18);
+  --danger: #b3352b;
+  --code-bg: #fafafa;
+  --canvas-bg: #f7f7f8;
 
   /* Saturated for a cream background: every token keeps 4.5:1 or better. */
   --hl-keyword: #a626a4;

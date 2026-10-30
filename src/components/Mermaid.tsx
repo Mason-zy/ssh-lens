@@ -16,13 +16,13 @@ const THEME_VARIABLES = {
     textColor: '#e9e6df',
   },
   light: {
-    background: '#faf8f3',
-    primaryColor: '#eae6de',
+    background: '#ffffff',
+    primaryColor: '#f0f0f2',
     primaryTextColor: '#23272e',
-    primaryBorderColor: '#cfc9bd',
+    primaryBorderColor: '#d5d5d8',
     lineColor: '#868c95',
-    secondaryColor: '#e0dbd2',
-    tertiaryColor: '#f3f0e9',
+    secondaryColor: '#f5f5f6',
+    tertiaryColor: '#fafafa',
     textColor: '#23272e',
   },
 } as const;

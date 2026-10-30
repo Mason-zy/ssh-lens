@@ -44,10 +44,10 @@ const DARK_THEME = {
  * ones: there is no brighter direction left to go.
  */
 const LIGHT_THEME = {
-  background: '#faf8f3',
+  background: '#ffffff',
   foreground: '#23272e',
   cursor: '#a8541c',
-  cursorAccent: '#faf8f3',
+  cursorAccent: '#ffffff',
   selectionBackground: 'rgba(168, 84, 28, 0.22)',
   black: '#23272e',
   red: '#b3352b',
