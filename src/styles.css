@@ -2,18 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --ink-950: #14171c;
-  --ink-900: #191d24;
-  --ink-850: #1e232b;
-  --ink-800: #20252e;
-  --ink-700: #2a3039;
-  --paper: #e9e6df;
-  --paper-dim: #a8a49b;
-  --paper-faint: #6d6a63;
-  --amber: #c98a3c;
+/*
+ * Two skins behind one set of tokens. `-rgb` holds raw channels for Tailwind's
+ * `/opacity` modifier; the plain token is what hand-written CSS uses.
+ */
+:root,
+[data-theme='dark'] {
+  --ink-950-rgb: 20 23 28;
+  --ink-900-rgb: 25 29 36;
+  --ink-850-rgb: 30 35 43;
+  --ink-800-rgb: 32 37 46;
+  --ink-700-rgb: 42 48 57;
+  --paper-rgb: 233 230 223;
+  --paper-dim-rgb: 168 164 155;
+  --paper-faint-rgb: 109 106 99;
+  --amber-rgb: 201 138 60;
+
+  --ink-950: rgb(var(--ink-950-rgb));
+  --ink-900: rgb(var(--ink-900-rgb));
+  --ink-850: rgb(var(--ink-850-rgb));
+  --ink-800: rgb(var(--ink-800-rgb));
+  --ink-700: rgb(var(--ink-700-rgb));
+  --paper: rgb(var(--paper-rgb));
+  --paper-dim: rgb(var(--paper-dim-rgb));
+  --paper-faint: rgb(var(--paper-faint-rgb));
+  --amber: rgb(var(--amber-rgb));
+
   --rule: rgba(255, 255, 255, 0.08);
   --rule-strong: rgba(255, 255, 255, 0.14);
+  --danger: #d97757;
+  --code-bg: #101317;
+  --canvas-bg: #0f1216;
+
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-comment: #5c6370;
+  --hl-function: #61afef;
+  --hl-variable: #e06c75;
+  --hl-meta: #7f848e;
+
+  --file-html: #c9855a;
+  --file-data: #9aad85;
+  --file-image: #8fa7c4;
+  --file-pdf: #c47f7f;
+
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --ink-950-rgb: 250 248 243;
+  --ink-900-rgb: 243 240 233;
+  --ink-850-rgb: 234 230 222;
+  --ink-800-rgb: 224 219 210;
+  --ink-700-rgb: 207 201 189;
+  --paper-rgb: 35 39 46;
+  --paper-dim-rgb: 84 90 99;
+  --paper-faint-rgb: 134 140 149;
+  --amber-rgb: 168 84 28;
+
+  --ink-950: rgb(var(--ink-950-rgb));
+  --ink-900: rgb(var(--ink-900-rgb));
+  --ink-850: rgb(var(--ink-850-rgb));
+  --ink-800: rgb(var(--ink-800-rgb));
+  --ink-700: rgb(var(--ink-700-rgb));
+  --paper: rgb(var(--paper-rgb));
+  --paper-dim: rgb(var(--paper-dim-rgb));
+  --paper-faint: rgb(var(--paper-faint-rgb));
+  --amber: rgb(var(--amber-rgb));
+
+  --rule: rgba(0, 0, 0, 0.09);
+  --rule-strong: rgba(0, 0, 0, 0.16);
+  --danger: #c0453a;
+  --code-bg: #f7f4ee;
+  --canvas-bg: #eeeae2;
+
+  /* Saturated for a cream background: every token keeps 4.5:1 or better. */
+  --hl-keyword: #a626a4;
+  --hl-string: #2f6b2d;
+  --hl-number: #7a5600;
+  --hl-comment: #656b74;
+  --hl-function: #2854b0;
+  --hl-variable: #b3352b;
+  --hl-meta: #5f656e;
+
+  --file-html: #a35a1f;
+  --file-data: #4f7040;
+  --file-image: #3f6ea8;
+  --file-pdf: #a8443f;
+
+  color-scheme: light;
 }
 
 @layer base {
@@ -240,25 +318,25 @@
 .hljs-built_in,
 .hljs-type,
 .hljs-tag {
-  color: #c678dd;
+  color: var(--hl-keyword);
 }
 
 .hljs-string,
 .hljs-attr,
 .hljs-template-tag,
 .hljs-template-variable {
-  color: #98c379;
+  color: var(--hl-string);
 }
 
 .hljs-number,
 .hljs-literal,
 .hljs-symbol {
-  color: #d19a66;
+  color: var(--hl-number);
 }
 
 .hljs-comment,
 .hljs-quote {
-  color: #5c6370;
+  color: var(--hl-comment);
   font-style: italic;
 }
 
@@ -266,26 +344,26 @@
 .hljs-title,
 .hljs-section,
 .hljs-selector-id {
-  color: #61afef;
+  color: var(--hl-function);
 }
 
 .hljs-variable,
 .hljs-params,
 .hljs-name {
-  color: #e06c75;
+  color: var(--hl-variable);
 }
 
 .hljs-meta,
 .hljs-doctag {
-  color: #7f848e;
+  color: var(--hl-meta);
 }
 
 .hljs-addition {
-  color: #98c379;
-  background: rgba(152, 195, 121, 0.1);
+  color: var(--hl-string);
+  background: color-mix(in srgb, var(--hl-string) 12%, transparent);
 }
 
 .hljs-deletion {
-  color: #e06c75;
-  background: rgba(224, 108, 117, 0.1);
+  color: var(--hl-variable);
+  background: color-mix(in srgb, var(--hl-variable) 12%, transparent);
 }

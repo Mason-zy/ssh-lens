@@ -69,7 +69,7 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
         </div>
 
         {error && (
-          <p role="alert" className="fade-in mt-3 font-mono text-[11px] text-[#d97757]">
+          <p role="alert" className="fade-in mt-3 font-mono text-[11px] text-[var(--danger)]">
             {error}
           </p>
         )}

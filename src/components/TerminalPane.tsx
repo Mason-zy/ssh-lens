@@ -13,7 +13,7 @@ type ServerMessage =
 
 const FONT = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 
-const THEME = {
+const DARK_THEME = {
   background: '#14171c',
   foreground: '#e9e6df',
   cursor: '#c98a3c',
@@ -37,7 +37,43 @@ const THEME = {
   brightWhite: '#ffffff',
 };
 
-export default function TerminalPane({ active }: { active: boolean }) {
+/*
+ * Every ANSI colour here clears 4.5:1 against the cream background — including
+ * `white` and `brightWhite`, which would be invisible if mapped literally. On a
+ * light background the "bright" variants therefore run darker than the base
+ * ones: there is no brighter direction left to go.
+ */
+const LIGHT_THEME = {
+  background: '#faf8f3',
+  foreground: '#23272e',
+  cursor: '#a8541c',
+  cursorAccent: '#faf8f3',
+  selectionBackground: 'rgba(168, 84, 28, 0.22)',
+  black: '#23272e',
+  red: '#b3352b',
+  green: '#3d7a1f',
+  yellow: '#8a6100',
+  blue: '#2f5fc4',
+  magenta: '#8f1f8f',
+  cyan: '#0a6e6e',
+  white: '#5b6068',
+  brightBlack: '#6b7178',
+  brightRed: '#a82f26',
+  brightGreen: '#356b1a',
+  brightYellow: '#7a5600',
+  brightBlue: '#2854b0',
+  brightMagenta: '#7d1b7d',
+  brightCyan: '#086060',
+  brightWhite: '#23272e',
+};
+
+export default function TerminalPane({
+  active,
+  theme,
+}: {
+  active: boolean;
+  theme: 'dark' | 'light';
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -58,7 +94,7 @@ export default function TerminalPane({ active }: { active: boolean }) {
         letterSpacing: 0.2,
         cursorBlink: true,
         scrollback: 5000,
-        theme: THEME,
+        theme: theme === 'dark' ? DARK_THEME : LIGHT_THEME,
       });
 
       const fit = new FitAddon();
@@ -160,6 +196,13 @@ export default function TerminalPane({ active }: { active: boolean }) {
       cleanup();
     };
   }, []);
+
+  // Switching skin repaints the existing terminal rather than remounting it,
+  // so the running shell and its scrollback survive the change.
+  useEffect(() => {
+    const terminal = termRef.current;
+    if (terminal) terminal.options.theme = theme === 'dark' ? DARK_THEME : LIGHT_THEME;
+  }, [theme]);
 
   // The pane stays mounted while the Files tab is showing so the shell survives
   // tab switches, but a hidden element measures zero — re-fit on reveal.

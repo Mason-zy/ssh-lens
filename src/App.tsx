@@ -10,6 +10,9 @@ type Phase = 'checking' | 'login' | 'ready';
 type Tab = 'files' | 'terminal';
 
 const SIDEBAR_KEY = 'ssh-lens:sidebar-open';
+const THEME_KEY = 'ssh-lens:theme';
+
+type Theme = 'dark' | 'light';
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('checking');
@@ -18,6 +21,14 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(
     () => localStorage.getItem(SIDEBAR_KEY) !== '0',
   );
+  const [theme, setTheme] = useState<Theme>(() =>
+    localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark',
+  );
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
 
   const [file, setFile] = useState<FilePayload | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -186,6 +197,15 @@ export default function App() {
           </div>
 
           <button
+            onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+            aria-label={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
+            title={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
+            className="px-1 font-mono text-[13px] text-paper-faint transition-colors hover:text-paper"
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
+
+          <button
             onClick={() => void logout()}
             className="text-[10.5px] tracking-[0.16em] text-paper-faint transition-colors hover:text-paper"
           >
@@ -215,6 +235,7 @@ export default function App() {
               loading={loading}
               error={error}
               mode={mode}
+              theme={theme}
               onModeChange={setMode}
               onRetry={retry}
               onSave={saveFile}
@@ -224,7 +245,7 @@ export default function App() {
         </div>
 
         <div className={`h-full bg-ink-950 ${tab === 'terminal' ? 'block' : 'hidden'}`}>
-          <TerminalPane active={tab === 'terminal'} />
+          <TerminalPane active={tab === 'terminal'} theme={theme} />
         </div>
       </div>
     </div>

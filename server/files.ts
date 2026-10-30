@@ -298,6 +298,12 @@ export async function createEntry(absolute: string, type: 'file' | 'directory'):
 export async function renameEntry(from: string, to: string): Promise<void> {
   if (from === to) return;
 
+  // Moving a directory into its own subtree would either fail mid-way or
+  // detach the tree; refuse before touching the filesystem.
+  if (to.startsWith(`${from}${path.sep}`)) {
+    throw new Error('不能把目录移动到它自己的子目录里');
+  }
+
   const target = await stat(to).catch(() => null);
   if (target) throw new Error('目标名称已存在');
 

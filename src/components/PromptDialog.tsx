@@ -73,7 +73,7 @@ export default function PromptDialog({
           className="mt-3 w-full border border-[var(--rule-strong)] bg-[var(--ink-950)] px-2.5 py-2 font-mono text-[12.5px] text-paper focus:border-amber focus:outline-none"
         />
 
-        {error && <p className="mt-2 text-[11px] text-[#d97757]">{error}</p>}
+        {error && <p className="mt-2 text-[11px] text-[var(--danger)]">{error}</p>}
 
         <div className="mt-4 flex justify-end gap-2">
           <button

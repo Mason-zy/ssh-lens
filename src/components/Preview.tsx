@@ -17,6 +17,7 @@ type PreviewProps = {
   loading: boolean;
   error: string | null;
   mode: ViewMode;
+  theme: 'dark' | 'light';
   onModeChange: (mode: ViewMode) => void;
   onRetry: () => void;
   onSave: (path: string, content: string) => Promise<void>;
@@ -50,6 +51,7 @@ export default function Preview({
   loading,
   error,
   mode,
+  theme,
   onModeChange,
   onRetry,
   onSave,
@@ -115,16 +117,24 @@ export default function Preview({
       />
 
       {saveError && (
-        <p className="border-b border-[#d97757]/30 bg-[#d97757]/10 px-4 py-1.5 text-[11px] text-[#e89a80]">
+        <p className="border-b border-[var(--danger)]/30 bg-[var(--danger)]/10 px-4 py-1.5 text-[11px] text-[var(--danger)]">
           {saveError}
         </p>
       )}
 
       <div className="min-h-0 flex-1">
         {editing && file ? (
-          <Editor value={draft} path={file.path} onChange={setDraft} />
+          <Editor value={draft} path={file.path} theme={theme} onChange={setDraft} />
         ) : (
-          <Body file={file} loading={loading} error={error} mode={mode} zoom={zoom} onRetry={onRetry} />
+          <Body
+            file={file}
+            loading={loading}
+            error={error}
+            mode={mode}
+            zoom={zoom}
+            theme={theme}
+            onRetry={onRetry}
+          />
         )}
       </div>
     </div>
@@ -277,6 +287,7 @@ function Body({
   error,
   mode,
   zoom,
+  theme,
   onRetry,
 }: {
   file: FilePayload | null;
@@ -284,13 +295,14 @@ function Body({
   error: string | null;
   mode: ViewMode;
   zoom: number;
+  theme: 'dark' | 'light';
   onRetry: () => void;
 }) {
   if (error) {
     return (
       <div className="grid h-full place-items-center px-8">
-        <div className="max-w-md border-l-2 border-[#d97757] pl-5">
-          <p className="text-[10px] tracking-[0.18em] text-[#d97757]">读取失败</p>
+        <div className="max-w-md border-l-2 border-[var(--danger)] pl-5">
+          <p className="text-[10px] tracking-[0.18em] text-[var(--danger)]">读取失败</p>
           <p className="mt-3 text-[13px] leading-relaxed text-paper-dim">{error}</p>
           <button
             onClick={onRetry}
@@ -334,17 +346,17 @@ function Body({
 
   return (
     <div key={key} className="fade-in h-full">
-      {renderView(file, zoom)}
+      {renderView(file, zoom, theme)}
     </div>
   );
 }
 
-function renderView(file: FilePayload, zoom: number) {
+function renderView(file: FilePayload, zoom: number, theme: 'dark' | 'light') {
   const name = file.path.split('/').pop() ?? file.path;
 
   switch (file.kind) {
     case 'markdown':
-      return <MarkdownView content={file.content ?? ''} path={file.path} zoom={zoom} />;
+      return <MarkdownView content={file.content ?? ''} path={file.path} zoom={zoom} theme={theme} />;
     case 'html':
       return (
         <div className="h-full overflow-auto">
@@ -362,7 +374,7 @@ function renderView(file: FilePayload, zoom: number) {
       return <CodeView content={file.content ?? ''} path={file.path} zoom={zoom} />;
     case 'image':
       return (
-        <div className="h-full overflow-auto bg-[#0f1216] p-8">
+        <div className="h-full overflow-auto bg-[var(--canvas-bg)] p-8">
           <figure className="flex min-h-full flex-col items-center justify-center">
             <img
               src={api.rawUrl(file.path)}
@@ -379,7 +391,7 @@ function renderView(file: FilePayload, zoom: number) {
         <iframe
           title={name}
           src={api.rawUrl(file.path)}
-          className="h-full w-full border-0 bg-[#0f1216]"
+          className="h-full w-full border-0 bg-[var(--canvas-bg)]"
           referrerPolicy="no-referrer"
         />
       );
@@ -409,7 +421,17 @@ function resolveAssetUrl(source: string, filePath: string): string {
   }
 }
 
-function MarkdownView({ content, path, zoom }: { content: string; path: string; zoom: number }) {
+function MarkdownView({
+  content,
+  path,
+  zoom,
+  theme,
+}: {
+  content: string;
+  path: string;
+  zoom: number;
+  theme: 'dark' | 'light';
+}) {
   return (
     <div className="h-full overflow-auto">
       <article
@@ -430,7 +452,7 @@ function MarkdownView({ content, path, zoom }: { content: string; path: string; 
               const match = /language-([\w-]+)/.exec(className ?? '');
               const text = String(children ?? '').replace(/\n$/, '');
 
-              if (match?.[1] === 'mermaid') return <Mermaid code={text} />;
+              if (match?.[1] === 'mermaid') return <Mermaid code={text} theme={theme} />;
               if (match) {
                 return (
                   <code className={className} dangerouslySetInnerHTML={{ __html: highlight(text, match[1]) }} />
@@ -481,7 +503,7 @@ function CodeView({ content, path, zoom }: { content: string; path: string; zoom
       <div className="flex-1 overflow-auto">
         <pre
           style={{ zoom }}
-          className="min-h-full bg-[#101317] px-5 py-4 font-mono text-[12.5px] leading-[1.65] text-paper-dim"
+          className="min-h-full bg-[var(--code-bg)] px-5 py-4 font-mono text-[12.5px] leading-[1.65] text-paper-dim"
         >
           <code dangerouslySetInnerHTML={{ __html: html }} />
         </pre>

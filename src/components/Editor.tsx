@@ -14,6 +14,7 @@ import { languageOf } from '../lib/highlight';
 type EditorProps = {
   value: string;
   path: string;
+  theme: 'dark' | 'light';
   onChange: (value: string) => void;
 };
 
@@ -45,15 +46,15 @@ function languageFor(filePath: string) {
   }
 }
 
-export default function Editor({ value, path, onChange }: EditorProps) {
+export default function Editor({ value, path, theme, onChange }: EditorProps) {
   const extensions = useMemo(() => languageFor(path), [path]);
 
   return (
-    <div className="h-full overflow-auto bg-[#101317]">
+    <div className="h-full overflow-auto bg-[var(--code-bg)]">
       <CodeMirror
         value={value}
         height="100%"
-        theme={oneDark}
+        theme={theme === 'dark' ? oneDark : 'light'}
         extensions={extensions}
         onChange={onChange}
         basicSetup={{

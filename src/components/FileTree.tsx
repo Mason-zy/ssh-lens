@@ -19,18 +19,18 @@ type Dialog =
 const TINT: Record<string, string> = {
   md: 'text-amber',
   markdown: 'text-amber',
-  html: 'text-[#c9855a]',
-  htm: 'text-[#c9855a]',
-  json: 'text-[#9aad85]',
-  yml: 'text-[#9aad85]',
-  yaml: 'text-[#9aad85]',
-  png: 'text-[#8fa7c4]',
-  jpg: 'text-[#8fa7c4]',
-  jpeg: 'text-[#8fa7c4]',
-  gif: 'text-[#8fa7c4]',
-  svg: 'text-[#8fa7c4]',
-  webp: 'text-[#8fa7c4]',
-  pdf: 'text-[#c47f7f]',
+  html: 'text-[var(--file-html)]',
+  htm: 'text-[var(--file-html)]',
+  json: 'text-[var(--file-data)]',
+  yml: 'text-[var(--file-data)]',
+  yaml: 'text-[var(--file-data)]',
+  png: 'text-[var(--file-image)]',
+  jpg: 'text-[var(--file-image)]',
+  jpeg: 'text-[var(--file-image)]',
+  gif: 'text-[var(--file-image)]',
+  svg: 'text-[var(--file-image)]',
+  webp: 'text-[var(--file-image)]',
+  pdf: 'text-[var(--file-pdf)]',
 };
 
 function tintFor(name: string): string {
@@ -59,6 +59,8 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
   const [showHidden, setShowHidden] = useState(true);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
   const uploadTarget = useRef('/');
   const generation = useRef(0);
@@ -157,6 +159,27 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
 
   const rootEntries = visible(cache.get('/') ?? []);
 
+  /** Moves a dragged entry into a directory. Same-path drops are no-ops. */
+  async function moveInto(sourcePath: string, targetDirectory: string): Promise<void> {
+    const name = sourcePath.split('/').pop();
+    if (!name) return;
+
+    const destination = joinPath(targetDirectory, name);
+    if (destination === sourcePath) return;
+
+    try {
+      await api.rename(sourcePath, destination);
+      onRenamed(sourcePath, destination);
+      await reload();
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '移动失败');
+    } finally {
+      setDragOver(null);
+      setDragging(null);
+    }
+  }
+
   async function handleUpload(files: FileList | null): Promise<void> {
     if (!files || files.length === 0) return;
 
@@ -247,7 +270,7 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
 
       <div className="min-h-0 flex-1 overflow-y-auto py-1.5">
         {error && (
-          <p className="mx-3 my-2 border-l-2 border-[#d97757] pl-2 text-[11px] leading-relaxed text-[#d97757]">
+          <p className="mx-3 my-2 border-l-2 border-[var(--danger)] pl-2 text-[11px] leading-relaxed text-[var(--danger)]">
             {error}
           </p>
         )}
@@ -289,9 +312,14 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
               loading={loading}
               selectedPath={selectedPath}
               visible={visible}
+              dragOver={dragOver}
+              dragging={dragging}
               onToggle={toggle}
               onOpenFile={onOpenFile}
               actions={actions}
+              onDragState={setDragging}
+              onDragOver={setDragOver}
+              onDrop={moveInto}
             />
           ))
         )}
@@ -374,8 +402,13 @@ type TreeRowProps = {
   loading: Set<string>;
   selectedPath: string | null;
   visible: (entries: Entry[]) => Entry[];
+  dragOver: string | null;
+  dragging: string | null;
   onToggle: (entry: Entry) => void;
   onOpenFile: (entry: Entry) => void;
+  onDragState: (path: string | null) => void;
+  onDragOver: (path: string | null) => void;
+  onDrop: (sourcePath: string, targetDirectory: string) => void;
   actions: {
     create: (parent: string, type: 'file' | 'directory') => void;
     rename: (entry: Entry) => void;
@@ -392,8 +425,13 @@ function TreeRow({
   loading,
   selectedPath,
   visible,
+  dragOver,
+  dragging,
   onToggle,
   onOpenFile,
+  onDragState,
+  onDragOver,
+  onDrop,
   actions,
 }: TreeRowProps) {
   const isDirectory = entry.type === 'directory';
@@ -406,15 +444,50 @@ function TreeRow({
   // `group/row` would make a hover on any descendant light up this row too.
   return (
     <>
-      <div className="group/row relative">
-        <button
-        onClick={() => (isDirectory ? onToggle(entry) : onOpenFile(entry))}
-        title={entry.path}
-        className={`flex w-full items-baseline gap-1.5 py-[3px] pr-14 text-left text-[12.5px] transition-colors hover:bg-[var(--ink-850)] ${
-          isSelected ? 'bg-[var(--ink-850)] text-white' : 'text-paper-dim'
-        }`}
-        style={{ paddingLeft: `${level * 13 + 12}px` }}
+      <div
+        className="group/row relative"
+        // Only directories accept a drop; the highlight follows the pointer.
+        onDragOver={(event) => {
+          if (!isDirectory || !dragging) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+          if (dragOver !== entry.path) onDragOver(entry.path);
+        }}
+        onDragLeave={() => {
+          if (dragOver === entry.path) onDragOver(null);
+        }}
+        onDrop={(event) => {
+          if (!isDirectory) return;
+          event.preventDefault();
+          const source = event.dataTransfer.getData('text/plain') || dragging;
+          onDragOver(null);
+          if (source) onDrop(source, entry.path);
+        }}
       >
+        <button
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData('text/plain', entry.path);
+            event.dataTransfer.effectAllowed = 'move';
+            onDragState(entry.path);
+          }}
+          onDragEnd={() => {
+            onDragState(null);
+            onDragOver(null);
+          }}
+          onClick={() => (isDirectory ? onToggle(entry) : onOpenFile(entry))}
+          title={entry.path}
+          className={`flex w-full items-baseline gap-1.5 py-[3px] pr-14 text-left text-[12.5px] transition-colors ${
+            dragOver === entry.path
+              ? 'bg-amber/15 ring-1 ring-inset ring-amber'
+              : isSelected
+                ? 'bg-[var(--ink-850)] text-white'
+                : dragging === entry.path
+                  ? 'text-paper-faint opacity-50'
+                  : 'text-paper-dim hover:bg-[var(--ink-850)]'
+          }`}
+          style={{ paddingLeft: `${level * 13 + 12}px` }}
+        >
         {isSelected && <span className="absolute inset-y-0 left-0 w-[2px] bg-amber" />}
         <span className={`shrink-0 text-[10px] ${isDirectory ? 'text-paper-faint' : tintFor(entry.name)}`}>
           {isDirectory ? (isOpen ? '▾' : '▸') : '·'}
@@ -466,8 +539,13 @@ function TreeRow({
             loading={loading}
             selectedPath={selectedPath}
             visible={visible}
+            dragOver={dragOver}
+            dragging={dragging}
             onToggle={onToggle}
             onOpenFile={onOpenFile}
+            onDragState={onDragState}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
             actions={actions}
           />
         ))}
@@ -495,7 +573,7 @@ function RowAction({
         onClick();
       }}
       className={`px-1 text-[11px] leading-none text-paper-faint hover:text-paper ${
-        danger ? 'hover:!text-[#d97757]' : ''
+        danger ? 'hover:!text-[var(--danger)]' : ''
       }`}
     >
       {children}

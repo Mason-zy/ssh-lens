@@ -46,10 +46,10 @@ export default function ConfirmDialog({
           if (event.key === 'Escape') onCancel();
         }}
       >
-        <p className="text-[11px] tracking-[0.2em] text-[#d97757]">{title}</p>
+        <p className="text-[11px] tracking-[0.2em] text-[var(--danger)]">{title}</p>
         <p className="mt-3 break-all font-mono text-[12px] leading-relaxed text-paper-dim">{detail}</p>
 
-        {error && <p className="mt-2 text-[11px] text-[#d97757]">{error}</p>}
+        {error && <p className="mt-2 text-[11px] text-[var(--danger)]">{error}</p>}
 
         <div className="mt-4 flex justify-end gap-2">
           <button
@@ -61,7 +61,7 @@ export default function ConfirmDialog({
           <button
             onClick={() => void run()}
             disabled={busy}
-            className="border border-[#d97757]/50 bg-[#d97757]/10 px-3 py-1.5 text-[11.5px] text-[#e89a80] hover:border-[#d97757] disabled:opacity-40"
+            className="border border-[var(--danger)]/50 bg-[var(--danger)]/10 px-3 py-1.5 text-[11.5px] text-[var(--danger)] hover:border-[var(--danger)] disabled:opacity-40"
           >
             {busy ? '处理中…' : confirmText}
           </button>
