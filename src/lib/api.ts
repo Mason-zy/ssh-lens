@@ -74,21 +74,50 @@ export const api = {
       `/api/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(query)}`,
     ),
 
-  /** Multipart upload: Content-Type must stay unset so the browser adds the boundary. */
-  upload: async (path: string, files: File[]): Promise<{ ok: true; saved: string[] }> => {
-    const body = new FormData();
-    for (const file of files) body.append('files', file);
+  /**
+   * Multipart upload. Uses XHR rather than fetch because only XHR exposes
+   * upload progress; Content-Type stays unset so the browser adds the boundary.
+   */
+  upload: (
+    path: string,
+    files: File[],
+    onProgress?: (loaded: number, total: number) => void,
+  ): Promise<{ ok: true; saved: string[] }> =>
+    new Promise((resolve, reject) => {
+      const body = new FormData();
+      for (const file of files) body.append('files', file);
 
-    const response = await fetch(`/api/upload?path=${encodeURIComponent(path)}`, {
-      method: 'POST',
-      body,
-      credentials: 'same-origin',
-    });
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api/upload?path=${encodeURIComponent(path)}`);
+      xhr.withCredentials = true;
 
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    if (response.status === 401) throw new ApiError('登录已过期', 401);
-    if (!response.ok) throw new ApiError(payload.error ?? `上传失败（${response.status}）`, response.status);
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) onProgress?.(event.loaded, event.total);
+      });
 
-    return payload as { ok: true; saved: string[] };
-  },
+      xhr.addEventListener('load', () => {
+        let payload: { error?: string; saved?: string[] } = {};
+        try {
+          payload = JSON.parse(xhr.responseText) as { error?: string; saved?: string[] };
+        } catch {
+          /* empty or non-JSON body */
+        }
+
+        if (xhr.status === 401) {
+          reject(new ApiError('登录已过期', 401));
+          return;
+        }
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject(new ApiError(payload.error ?? `上传失败（${xhr.status}）`, xhr.status));
+          return;
+        }
+
+        resolve({ ok: true, saved: payload.saved ?? [] });
+      });
+
+      xhr.addEventListener('error', () => reject(new ApiError('网络错误，上传中断', 0)));
+      xhr.addEventListener('abort', () => reject(new ApiError('上传已取消', 0)));
+
+      xhr.send(body);
+    }),
 };

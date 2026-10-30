@@ -1,10 +1,9 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
+import { readdir, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import AdmZip from 'adm-zip';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import { WebSocketServer } from 'ws';
@@ -188,11 +187,9 @@ app.post('/api/upload', requireAuth, upload.array('files', 20), async (request, 
       const name = decodeUploadName(path.basename(file.originalname)).replace(/[/\\\0]/g, '_').trim();
       if (!name || name === '.' || name === '..') continue;
 
-      if (name.toLowerCase().endsWith('.zip')) {
-        saved.push(await extractZip(file.buffer, targetDirectory, name));
-        continue;
-      }
-
+      // Uploads are stored verbatim, archives included. Unpacking on the server
+      // was surprising and lossy (the original .zip disappeared), so extraction
+      // is left to the user via the terminal.
       await writeFile(path.join(targetDirectory, name), file.buffer);
       saved.push(name);
     }
@@ -211,62 +208,6 @@ app.post('/api/upload', requireAuth, upload.array('files', 20), async (request, 
 function decodeUploadName(name: string): string {
   const utf8 = Buffer.from(name, 'latin1').toString('utf8');
   return utf8.includes('�') ? name : utf8;
-}
-
-/**
- * Archives written by older Chinese Windows tools store GBK bytes without the
- * UTF-8 flag, so adm-zip's default UTF-8 decoding produces mojibake. Honour the
- * flag when set, otherwise try strict UTF-8 and fall back to GBK.
- */
-function decodeZipEntryName(entry: AdmZip.IZipEntry): string {
-  const raw = (entry as unknown as { rawEntryName?: Buffer }).rawEntryName;
-  if (!raw) return entry.entryName;
-
-  const flags = (entry.header as unknown as { flags?: number } | undefined)?.flags ?? 0;
-  if ((flags & 0x800) !== 0) return raw.toString('utf8');
-
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(raw);
-  } catch {
-    try {
-      const gbk = new TextDecoder('gbk').decode(raw);
-      if (!gbk.includes('�')) return gbk;
-    } catch {
-      /* unknown encoding */
-    }
-  }
-
-  return raw.toString('utf8');
-}
-
-/**
- * Extracts into a directory named after the archive. Every entry is re-checked
- * against the destination so a crafted `../` path cannot escape (zip slip).
- */
-async function extractZip(buffer: Buffer, targetDirectory: string, archiveName: string): Promise<string> {
-  const zip = new AdmZip(buffer);
-  const folderName = archiveName.replace(/\.zip$/i, '') || 'archive';
-  const destination = path.join(targetDirectory, folderName);
-
-  const base = path.resolve(destination);
-
-  for (const entry of zip.getEntries()) {
-    const entryName = decodeZipEntryName(entry).replace(/\\/g, '/');
-    if (entryName.includes('..') || entryName.startsWith('/')) continue;
-
-    const full = path.resolve(base, entryName);
-    if (full !== base && !full.startsWith(`${base}${path.sep}`)) continue;
-
-    if (entry.isDirectory) {
-      await mkdir(full, { recursive: true });
-      continue;
-    }
-
-    await mkdir(path.dirname(full), { recursive: true });
-    await writeFile(full, entry.getData());
-  }
-
-  return `${folderName}/`;
 }
 
 app.post('/api/write', requireAuth, async (request, response) => {

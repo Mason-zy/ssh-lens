@@ -59,6 +59,9 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
   const [showHidden, setShowHidden] = useState(true);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [upload, setUpload] = useState<{ loaded: number; total: number; count: number } | null>(
+    null,
+  );
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
@@ -183,20 +186,27 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
   async function handleUpload(files: FileList | null): Promise<void> {
     if (!files || files.length === 0) return;
 
+    const list = Array.from(files);
+    const total = list.reduce((sum, file) => sum + file.size, 0);
+
     setUploading(true);
+    setUpload({ loaded: 0, total, count: list.length });
     setError(null);
 
     try {
-      await api.upload(uploadTarget.current, Array.from(files));
+      await api.upload(uploadTarget.current, list, (loaded) => {
+        setUpload({ loaded, total, count: list.length });
+      });
+
       if (uploadTarget.current !== '/') {
-        const next = new Set(expanded).add(uploadTarget.current);
-        setExpanded(next);
+        setExpanded(new Set(expanded).add(uploadTarget.current));
       }
       await reload();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '上传失败');
     } finally {
       setUploading(false);
+      setUpload(null);
       if (uploadInput.current) uploadInput.current.value = '';
     }
   }
@@ -257,7 +267,7 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
           disabled={uploading}
           className="border border-[var(--rule)] px-2 py-0.5 text-[10.5px] text-paper-dim hover:border-amber hover:text-paper disabled:opacity-40"
         >
-          {uploading ? '上传中…' : '⇧ 上传'}
+          {uploading ? `上传 ${upload?.count ?? 0} 个…` : '⇧ 上传'}
         </button>
         <input
           ref={uploadInput}
@@ -390,6 +400,52 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
           onCancel={() => setDialog(null)}
         />
       )}
+
+      {upload && <UploadProgress {...upload} />}
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+/** Fixed to the viewport's bottom-left so it stays visible if the tree scrolls. */
+function UploadProgress({
+  loaded,
+  total,
+  count,
+}: {
+  loaded: number;
+  total: number;
+  count: number;
+}) {
+  const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 100;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-4 left-4 z-40 w-[17rem] border border-[var(--rule-strong)] bg-[var(--ink-900)] px-3 py-2.5 shadow-lg"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11.5px] text-paper">上传中 {count} 个文件</span>
+        <span className="shrink-0 font-mono text-[11px] text-amber">{percent}%</span>
+      </div>
+
+      <div className="mt-2 h-[3px] w-full overflow-hidden bg-[var(--rule)]">
+        <div
+          className="h-full bg-amber transition-[width] duration-150 ease-out"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+
+      <p className="mt-1.5 font-mono text-[10px] text-paper-faint">
+        {formatBytes(loaded)} / {formatBytes(total)}
+      </p>
     </div>
   );
 }
