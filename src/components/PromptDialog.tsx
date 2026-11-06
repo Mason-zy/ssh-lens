@@ -85,7 +85,7 @@ export default function PromptDialog({
           <button
             onClick={() => void submit()}
             disabled={busy || value.trim().length === 0}
-            className="border border-[var(--rule-strong)] bg-[var(--ink-800)] px-3 py-1.5 text-[11.5px] text-paper hover:border-amber hover:text-white disabled:opacity-40"
+            className="border border-[var(--rule-strong)] bg-[var(--ink-800)] px-3 py-1.5 text-[11.5px] text-paper hover:border-amber hover:text-paper disabled:opacity-40"
           >
             {busy ? '处理中…' : confirmText}
           </button>

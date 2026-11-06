@@ -46,9 +46,9 @@ const DARK_THEME = {
 const LIGHT_THEME = {
   background: '#ffffff',
   foreground: '#23272e',
-  cursor: '#a8541c',
+  cursor: '#1d4ed8',
   cursorAccent: '#ffffff',
-  selectionBackground: 'rgba(168, 84, 28, 0.22)',
+  selectionBackground: 'rgba(29, 78, 216, 0.18)',
   black: '#23272e',
   red: '#b3352b',
   green: '#3d7a1f',

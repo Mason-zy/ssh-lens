@@ -77,7 +77,7 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="submit"
           disabled={busy || password.length === 0}
-          className="rise mt-7 w-full border border-[var(--rule-strong)] bg-[var(--ink-850)] px-4 py-2.5 text-[13px] font-medium tracking-wide text-paper transition-colors hover:border-amber hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          className="rise mt-7 w-full border border-[var(--rule-strong)] bg-[var(--ink-850)] px-4 py-2.5 text-[13px] font-medium tracking-wide text-paper transition-colors hover:border-amber hover:text-paper disabled:cursor-not-allowed disabled:opacity-35"
           style={{ animationDelay: '240ms' }}
         >
           {busy ? '验证中…' : '进入'}

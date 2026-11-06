@@ -57,6 +57,9 @@ export const api = {
 
   rawUrl: (path: string) => `/api/raw?path=${encodeURIComponent(path)}`,
 
+  /** Streams the untouched file with `Content-Disposition: attachment`. */
+  downloadUrl: (path: string) => `/api/download?path=${encodeURIComponent(path)}`,
+
   write: (path: string, content: string) =>
     request<{ ok: true }>('/api/write', { method: 'POST', body: JSON.stringify({ path, content }) }),
 

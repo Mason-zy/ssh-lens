@@ -54,13 +54,15 @@
   /* Every surface is pure white; structure comes from hairlines and hover fills. */
   --ink-950-rgb: 255 255 255;
   --ink-900-rgb: 255 255 255;
-  --ink-850-rgb: 244 244 245;
-  --ink-800-rgb: 235 235 237;
-  --ink-700-rgb: 214 214 217;
-  --paper-rgb: 35 39 46;
-  --paper-dim-rgb: 84 90 99;
-  --paper-faint-rgb: 134 140 149;
-  --amber-rgb: 168 84 28;
+  --ink-850-rgb: 246 246 247;
+  --ink-800-rgb: 237 237 239;
+  --ink-700-rgb: 212 212 216;
+  --paper-rgb: 24 27 32;
+  --paper-dim-rgb: 68 74 83;
+  --paper-faint-rgb: 124 130 139;
+  /* Deep blue, not amber: warm yellow sits too close to white to read as an
+     accent. Every use of --amber keeps a 4.5:1 or better ratio on white. */
+  --amber-rgb: 29 78 216;
 
   --ink-950: rgb(var(--ink-950-rgb));
   --ink-900: rgb(var(--ink-900-rgb));
@@ -75,10 +77,10 @@
   --rule: rgba(0, 0, 0, 0.1);
   --rule-strong: rgba(0, 0, 0, 0.18);
   --danger: #b3352b;
-  --code-bg: #fafafa;
-  --canvas-bg: #f7f7f8;
+  --code-bg: #ffffff;
+  --canvas-bg: #ffffff;
 
-  /* Saturated for a cream background: every token keeps 4.5:1 or better. */
+  /* Saturated for a white background: every token keeps 4.5:1 or better. */
   --hl-keyword: #a626a4;
   --hl-string: #2f6b2d;
   --hl-number: #7a5600;
@@ -112,7 +114,7 @@
   }
 
   ::selection {
-    background: rgba(201, 138, 60, 0.25);
+    background: rgb(var(--amber-rgb) / 0.25);
   }
 
   :focus-visible {
@@ -139,7 +141,7 @@
 
 @layer components {
   .reading {
-    max-width: 74ch;
+    max-width: 104ch;
     margin: 0 auto;
     padding: 2.5rem 2.25rem 5rem;
     line-height: 1.72;
@@ -180,7 +182,7 @@
   .reading a {
     color: var(--amber);
     text-decoration: none;
-    border-bottom: 1px solid rgba(201, 138, 60, 0.35);
+    border-bottom: 1px solid rgb(var(--amber-rgb) / 0.35);
   }
 
   .reading a:hover {
@@ -217,14 +219,15 @@
     padding: 0.12em 0.4em;
     border-radius: 3px;
     background: var(--ink-850);
-    color: #dfd8c8;
+    /* Follows the theme: cream text belongs on the dark canvas only. */
+    color: var(--paper);
   }
 
   .reading pre {
     margin: 1.2rem 0;
     padding: 1rem 1.15rem;
     border-radius: 6px;
-    background: #101317;
+    background: var(--code-bg);
     border: 1px solid var(--rule);
     overflow-x: auto;
     line-height: 1.6;

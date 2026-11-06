@@ -9,6 +9,8 @@ type FileTreeProps = {
   onOpenFile: (entry: Entry) => void;
   onDeleted: (path: string) => void;
   onRenamed: (from: string, to: string) => void;
+  /** Called after a refresh so the open file can be re-read from disk too. */
+  onRefresh?: () => void;
 };
 
 type Dialog =
@@ -48,7 +50,13 @@ function joinPath(parent: string, name: string): string {
   return parent === '/' ? `/${name}` : `${parent}/${name}`;
 }
 
-export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRenamed }: FileTreeProps) {
+export default function FileTree({
+  selectedPath,
+  onOpenFile,
+  onDeleted,
+  onRenamed,
+  onRefresh,
+}: FileTreeProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [cache, setCache] = useState<Map<string, Entry[]>>(new Map());
   const [loading, setLoading] = useState<Set<string>>(new Set());
@@ -64,6 +72,8 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
   );
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchNonce, setSearchNonce] = useState(0);
   const uploadInput = useRef<HTMLInputElement>(null);
   const uploadTarget = useRef('/');
   const generation = useRef(0);
@@ -158,7 +168,27 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, searchNonce]);
+
+  /**
+   * Re-reads every directory on screen. FileTree only learns about changes it
+   * makes itself, so edits made in the terminal or by an AI tool would
+   * otherwise stay invisible until a page reload.
+   */
+  const refresh = useCallback(async () => {
+    if (refreshing) return;
+
+    setRefreshing(true);
+    setError(null);
+
+    try {
+      await reload();
+      if (query.trim().length > 0) setSearchNonce((value) => value + 1);
+      onRefresh?.();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshing, reload, query, onRefresh]);
 
   const rootEntries = visible(cache.get('/') ?? []);
 
@@ -215,6 +245,16 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
     create: (parent: string, type: 'file' | 'directory') => setDialog({ mode: 'create', parent, type }),
     rename: (entry: Entry) => setDialog({ mode: 'rename', entry }),
     remove: (entry: Entry) => setDialog({ mode: 'delete', entry }),
+    // Content-Disposition makes this a download, not a navigation; the anchor
+    // has to be in the document for Firefox to accept the click.
+    download: (entry: Entry) => {
+      const link = document.createElement('a');
+      link.href = api.downloadUrl(entry.path);
+      link.download = entry.name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+    },
     upload: (parent: string) => {
       uploadTarget.current = parent;
       uploadInput.current?.click();
@@ -268,6 +308,14 @@ export default function FileTree({ selectedPath, onOpenFile, onDeleted, onRename
           className="border border-[var(--rule)] px-2 py-0.5 text-[10.5px] text-paper-dim hover:border-amber hover:text-paper disabled:opacity-40"
         >
           {uploading ? `上传 ${upload?.count ?? 0} 个…` : '⇧ 上传'}
+        </button>
+        <button
+          onClick={() => void refresh()}
+          disabled={refreshing}
+          title="重新读取磁盘上的目录与文件（终端或 AI 改动后点这里）"
+          className="border border-[var(--rule)] px-2 py-0.5 text-[10.5px] text-paper-dim hover:border-amber hover:text-paper disabled:opacity-40"
+        >
+          {refreshing ? '刷新中…' : '⟳ 刷新'}
         </button>
         <input
           ref={uploadInput}
@@ -470,6 +518,7 @@ type TreeRowProps = {
     rename: (entry: Entry) => void;
     remove: (entry: Entry) => void;
     upload: (parent: string) => void;
+    download: (entry: Entry) => void;
   };
 };
 
@@ -533,11 +582,13 @@ function TreeRow({
           }}
           onClick={() => (isDirectory ? onToggle(entry) : onOpenFile(entry))}
           title={entry.path}
-          className={`flex w-full items-baseline gap-1.5 py-[3px] pr-14 text-left text-[12.5px] transition-colors ${
+          className={`flex w-full items-baseline gap-1.5 py-[3px] text-left text-[12.5px] transition-colors ${
+            isDirectory ? 'pr-14' : 'pr-[4.75rem]'
+          } ${
             dragOver === entry.path
               ? 'bg-amber/15 ring-1 ring-inset ring-amber'
               : isSelected
-                ? 'bg-[var(--ink-850)] text-white'
+                ? 'bg-[var(--ink-800)] font-medium text-[var(--paper)]'
                 : dragging === entry.path
                   ? 'text-paper-faint opacity-50'
                   : 'text-paper-dim hover:bg-[var(--ink-850)]'
@@ -573,6 +624,11 @@ function TreeRow({
               ⇧
             </RowAction>
           </>
+        )}
+        {!isDirectory && (
+          <RowAction label={`下载 ${entry.name}`} onClick={() => actions.download(entry)}>
+            ⤓
+          </RowAction>
         )}
         <RowAction label={`重命名 ${entry.name}`} onClick={() => actions.rename(entry)}>
           ✎

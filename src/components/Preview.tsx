@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
@@ -63,13 +63,21 @@ export default function Preview({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
 
-  // A different file resets every per-file control.
+  // A different file resets every per-file control. The same file reloaded
+  // from disk (refresh button) keeps the draft, so an external edit cannot
+  // silently throw away the reader's unsaved changes.
+  const loadedPath = useRef<string | null>(null);
   useEffect(() => {
+    const sameFile = loadedPath.current === (file?.path ?? null);
+    loadedPath.current = file?.path ?? null;
+    setSaveError(null);
+
+    if (sameFile && editing) return;
+
     setEditing(false);
     setDraft(file?.content ?? '');
-    setSaveError(null);
     setZoom(1);
-  }, [file?.path, file?.content]);
+  }, [file?.path, file?.content, editing]);
 
   const editable = file !== null && EDITABLE.includes(file.kind) && typeof file.content === 'string';
   const dirty = editing && draft !== (file?.content ?? '');
@@ -119,6 +127,13 @@ export default function Preview({
       {saveError && (
         <p className="border-b border-[var(--danger)]/30 bg-[var(--danger)]/10 px-4 py-1.5 text-[11px] text-[var(--danger)]">
           {saveError}
+        </p>
+      )}
+
+      {/* A failed re-read keeps the current content: report it above the body. */}
+      {error && file && (
+        <p className="border-b border-[var(--danger)]/30 bg-[var(--danger)]/10 px-4 py-1.5 text-[11px] text-[var(--danger)]">
+          刷新失败：{error}
         </p>
       )}
 
@@ -235,7 +250,7 @@ function Toolbar({
               onClick={() => onModeChange(value)}
               aria-pressed={mode === value}
               className={`px-2 py-0.5 text-[10.5px] transition-colors ${
-                mode === value ? 'bg-[var(--ink-700)] text-white' : 'text-paper-faint hover:text-paper'
+                mode === value ? 'bg-[var(--ink-700)] text-[var(--paper)]' : 'text-paper-faint hover:text-paper'
               }`}
             >
               {value === 'render' ? '渲染' : '源码'}
@@ -243,6 +258,15 @@ function Toolbar({
           ))}
         </div>
       )}
+
+      <a
+        href={api.downloadUrl(file.path)}
+        download={fileName}
+        title={`下载 ${fileName}`}
+        className="shrink-0 border border-[var(--rule)] px-2.5 py-0.5 text-[10.5px] text-paper-dim hover:border-amber hover:text-paper"
+      >
+        下载
+      </a>
 
       {editable &&
         (editing ? (
@@ -298,7 +322,9 @@ function Body({
   theme: 'dark' | 'light';
   onRetry: () => void;
 }) {
-  if (error) {
+  // Once content is on screen a failed refresh is reported as a banner instead,
+  // so the reader does not lose the file they were looking at.
+  if (error && !file) {
     return (
       <div className="grid h-full place-items-center px-8">
         <div className="max-w-md border-l-2 border-[var(--danger)] pl-5">
@@ -397,7 +423,12 @@ function renderView(file: FilePayload, zoom: number, theme: 'dark' | 'light') {
       );
     default:
       return (
-        <Fallback path={file.path} size={file.size} rawUrl={api.rawUrl(file.path)} tooLarge={file.tooLarge} />
+        <Fallback
+          path={file.path}
+          size={file.size}
+          downloadUrl={api.downloadUrl(file.path)}
+          tooLarge={file.tooLarge}
+        />
       );
   }
 }
@@ -438,7 +469,7 @@ function MarkdownView({
         className="reading"
         // Keep the measured reading width steady: zoom scales the type, so the
         // constraint has to shrink by the same factor.
-        style={{ zoom, maxWidth: `${74 / zoom}ch` }}
+        style={{ zoom, maxWidth: `${104 / zoom}ch` }}
       >
         {/* Raw HTML is parsed so badges and centred headers render, then passed
             through rehype-sanitize: scripts, event handlers and iframes are
@@ -518,12 +549,12 @@ function CodeView({ content, path, zoom }: { content: string; path: string; zoom
 function Fallback({
   path,
   size,
-  rawUrl,
+  downloadUrl,
   tooLarge,
 }: {
   path: string;
   size: number;
-  rawUrl: string;
+  downloadUrl: string;
   tooLarge?: boolean;
 }) {
   return (
@@ -535,9 +566,9 @@ function Fallback({
         </p>
         <p className="mt-2 break-all font-mono text-[10.5px] text-paper-faint">{path}</p>
         <a
-          href={rawUrl}
+          href={downloadUrl}
           download
-          className="mt-5 inline-block border border-[var(--rule-strong)] px-3.5 py-1.5 font-mono text-[11px] text-paper transition-colors hover:border-amber hover:text-white"
+          className="mt-5 inline-block border border-[var(--rule-strong)] px-3.5 py-1.5 font-mono text-[11px] text-paper transition-colors hover:border-amber hover:text-paper"
         >
           下载文件
         </a>

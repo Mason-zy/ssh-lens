@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 
 import FileTree from './components/FileTree';
 import Login from './components/Login';
@@ -10,9 +16,19 @@ type Phase = 'checking' | 'login' | 'ready';
 type Tab = 'files' | 'terminal';
 
 const SIDEBAR_KEY = 'ssh-lens:sidebar-open';
+const SIDEBAR_WIDTH_KEY = 'ssh-lens:sidebar-width';
 const THEME_KEY = 'ssh-lens:theme';
 
+const SIDEBAR_DEFAULT_WIDTH = 280;
+const SIDEBAR_MIN_WIDTH = 200;
+const SIDEBAR_MAX_WIDTH = 720;
+
 type Theme = 'dark' | 'light';
+
+function clampSidebarWidth(width: number): number {
+  const viewportCap = Math.round(window.innerWidth * 0.6);
+  return Math.min(Math.max(width, SIDEBAR_MIN_WIDTH), Math.min(SIDEBAR_MAX_WIDTH, viewportCap));
+}
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('checking');
@@ -21,6 +37,12 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(
     () => localStorage.getItem(SIDEBAR_KEY) !== '0',
   );
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    return clampSidebarWidth(Number.isFinite(stored) && stored > 0 ? stored : SIDEBAR_DEFAULT_WIDTH);
+  });
+  const [resizing, setResizing] = useState(false);
+  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const [theme, setTheme] = useState<Theme>(() =>
     localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark',
   );
@@ -33,6 +55,7 @@ export default function App() {
   const [file, setFile] = useState<FilePayload | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<ViewMode>('render');
 
@@ -97,6 +120,45 @@ export default function App() {
     );
   }, []);
 
+  /**
+   * Quiet re-read after a tree refresh: no loading screen, because the reader
+   * is already looking at content. Preview keeps any unsaved draft.
+   */
+  const refreshOpenFile = useCallback(async () => {
+    if (!selectedPath) return;
+
+    try {
+      setFile(await api.file(selectedPath));
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 401) setPhase('login');
+      // The tree refresh already reflects a delete/rename; keep the content.
+    }
+  }, [selectedPath]);
+
+  /**
+   * Manual re-read of the open file: picks up edits made outside the browser
+   * (terminal, editor, AI agent) without a page reload. A failed re-read keeps
+   * the current content on screen and reports the problem in the notice bar.
+   */
+  const reloadFile = useCallback(async () => {
+    if (!selectedPath || reloading) return;
+
+    setReloading(true);
+    setError(null);
+
+    try {
+      setFile(await api.file(selectedPath));
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 401) {
+        setPhase('login');
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : '读取文件失败');
+    } finally {
+      setReloading(false);
+    }
+  }, [selectedPath, reloading]);
+
   const closeFile = useCallback(() => {
     setFile(null);
     setSelectedPath(null);
@@ -131,6 +193,39 @@ export default function App() {
       return updated;
     });
   }, []);
+
+  // Persist only settled widths, so dragging does not hammer localStorage.
+  useEffect(() => {
+    if (!resizing) localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  }, [resizing, sidebarWidth]);
+
+  useEffect(() => {
+    const keepInViewport = () => setSidebarWidth((current) => clampSidebarWidth(current));
+    window.addEventListener('resize', keepInViewport);
+    return () => window.removeEventListener('resize', keepInViewport);
+  }, []);
+
+  function startResize(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { startX: event.clientX, startWidth: sidebarWidth };
+    setResizing(true);
+  }
+
+  function moveResize(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag) return;
+    setSidebarWidth(clampSidebarWidth(drag.startWidth + event.clientX - drag.startX));
+  }
+
+  function endResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setResizing(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
 
   async function logout() {
     await api.logout().catch(() => undefined);
@@ -188,13 +283,23 @@ export default function App() {
                 aria-selected={tab === value}
                 onClick={() => setTab(value)}
                 className={`px-3 py-1 text-[11.5px] transition-colors ${
-                  tab === value ? 'bg-[var(--ink-700)] text-white' : 'text-paper-faint hover:text-paper'
+                  tab === value ? 'bg-[var(--ink-700)] text-[var(--paper)]' : 'text-paper-faint hover:text-paper'
                 }`}
               >
                 {value === 'files' ? '文件' : '终端'}
               </button>
             ))}
           </div>
+
+          <button
+            onClick={() => void reloadFile()}
+            disabled={!selectedPath || reloading}
+            aria-label="刷新当前文件"
+            title={selectedPath ? '重新读取文件，查看外部修改' : '没有打开的文件'}
+            className="shrink-0 px-1 font-mono text-[13px] leading-none text-paper-faint transition-colors hover:text-paper disabled:opacity-25"
+          >
+            <span className={`inline-block ${reloading ? 'animate-spin' : ''}`}>↻</span>
+          </button>
 
           <button
             onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
@@ -217,18 +322,43 @@ export default function App() {
       <div className="relative min-h-0 flex-1">
         <div className={`h-full ${tab === 'files' ? 'flex' : 'hidden'}`}>
           {/* Collapsing keeps the tree mounted so its cache and expansion state survive. */}
-          <aside
-            className={`shrink-0 overflow-hidden bg-[var(--ink-900)] transition-[width] duration-200 ease-out ${
-              sidebarOpen ? 'w-[280px] border-r border-[var(--rule)]' : 'w-0'
+          <div
+            className={`relative h-full shrink-0 ${
+              resizing ? '' : 'transition-[width] duration-200 ease-out'
             }`}
+            style={{ width: sidebarOpen ? sidebarWidth : 0 }}
           >
-            <FileTree
-              selectedPath={selectedPath}
-              onOpenFile={(entry) => void openFile(entry)}
-              onDeleted={handleDeleted}
-              onRenamed={handleRenamed}
-            />
-          </aside>
+            <aside
+              className={`h-full w-full overflow-hidden bg-[var(--ink-900)] ${
+                sidebarOpen ? 'border-r border-[var(--rule)]' : ''
+              }`}
+            >
+              <FileTree
+                selectedPath={selectedPath}
+                onOpenFile={(entry) => void openFile(entry)}
+                onDeleted={handleDeleted}
+                onRenamed={handleRenamed}
+                onRefresh={() => void refreshOpenFile()}
+              />
+            </aside>
+
+            {sidebarOpen && (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="拖动调整文件树宽度"
+                title="拖动调整宽度，双击恢复默认"
+                onPointerDown={startResize}
+                onPointerMove={moveResize}
+                onPointerUp={endResize}
+                onPointerCancel={endResize}
+                onDoubleClick={() => setSidebarWidth(SIDEBAR_DEFAULT_WIDTH)}
+                className={`absolute inset-y-0 -right-[3px] z-20 w-[6px] cursor-col-resize transition-colors ${
+                  resizing ? 'bg-amber/70' : 'hover:bg-amber/50'
+                }`}
+              />
+            )}
+          </div>
           <main className="min-w-0 flex-1">
             <Preview
               file={file}
@@ -247,6 +377,16 @@ export default function App() {
         <div className={`h-full bg-ink-950 ${tab === 'terminal' ? 'block' : 'hidden'}`}>
           <TerminalPane active={tab === 'terminal'} theme={theme} />
         </div>
+
+        {/* While dragging, this layer keeps iframes and panes from swallowing pointer events. */}
+        {resizing && (
+          <div
+            className="fixed inset-0 z-30 cursor-col-resize"
+            onPointerMove={moveResize}
+            onPointerUp={endResize}
+            onPointerCancel={endResize}
+          />
+        )}
       </div>
     </div>
   );

@@ -118,6 +118,51 @@ app.get('/api/raw', requireAuth, async (request, response) => {
   }
 });
 
+/**
+ * RFC 6266 / 5987: an ASCII fallback for old clients plus the real UTF-8 name,
+ * so Chinese file names survive. encodeURIComponent leaves `'()*` unescaped,
+ * which RFC 5987's attr-char does not allow, so those are percent-encoded too.
+ */
+function contentDisposition(name: string): string {
+  const ascii = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  const encoded = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
+/**
+ * Always an attachment at this endpoint, unlike /api/raw which streams the
+ * original MIME type so images and PDFs can render in place. Streams, so the
+ * 64 MB raw-preview cap does not apply to downloads.
+ */
+app.get('/api/download', requireAuth, async (request, response) => {
+  try {
+    const absolute = await resolveSafePathAsync(request.query.path);
+    const info = await stat(absolute);
+
+    if (!info.isFile()) {
+      response.status(400).json({ error: '只能下载文件' });
+      return;
+    }
+
+    response.setHeader('Content-Type', 'application/octet-stream');
+    response.setHeader('Content-Length', String(info.size));
+    response.setHeader('Content-Disposition', contentDisposition(path.basename(absolute)));
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+
+    const stream = streamRaw(absolute);
+    // A file removed or made unreadable between stat and open must not take
+    // the process down, and a client that hangs up needs the stream released.
+    stream.on('error', () => response.destroy());
+    response.on('close', () => stream.destroy());
+    stream.pipe(response);
+  } catch (error) {
+    response.status(400).json({ error: describe(error) });
+  }
+});
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 200 * 1024 * 1024, files: 20 },
